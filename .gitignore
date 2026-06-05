@@ -1,0 +1,20 @@
+# Virtual environment
+.venv/
+
+# Model weights (33GB)
+Cosmos3-Nano/
+
+# Example assets (large media files)
+Cosmos3-Nano-assets/
+
+# NVIDIA framework (separate repo)
+cosmos-framework/
+
+# Generated outputs
+output/
+action/output/
+action/datasets/
+
+# Python
+__pycache__/
+*.pyc

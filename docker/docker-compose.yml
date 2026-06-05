@@ -1,0 +1,89 @@
+services:
+
+  # NVIDIA GB10 (Project DIGITS)
+  cosmos3-gb10:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gb10
+    image: cosmos3-nano:gb10
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    volumes:
+      - ../Cosmos3-Nano:/workspace/cosmos3/Cosmos3-Nano:ro
+      - ../Cosmos3-Nano-assets:/workspace/cosmos3/Cosmos3-Nano-assets:ro
+      - ../output:/workspace/cosmos3/output
+      - ../inputs:/workspace/cosmos3/inputs
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - TORCH_COMPILE_DISABLE=1
+      - LD_LIBRARY_PATH=
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    stdin_open: true
+    tty: true
+
+  # NVIDIA Jetson Thor
+  cosmos3-jetson-thor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jetson-thor
+    image: cosmos3-nano:jetson-thor
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    volumes:
+      - ../Cosmos3-Nano:/workspace/cosmos3/Cosmos3-Nano:ro
+      - ../Cosmos3-Nano-assets:/workspace/cosmos3/Cosmos3-Nano-assets:ro
+      - ../output:/workspace/cosmos3/output
+      - ../inputs:/workspace/cosmos3/inputs
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - TORCH_COMPILE_DISABLE=1
+      - LD_LIBRARY_PATH=
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    stdin_open: true
+    tty: true
+
+  # Video generation server (either platform)
+  cosmos3-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gb10
+    image: cosmos3-nano:gb10
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../Cosmos3-Nano:/workspace/cosmos3/Cosmos3-Nano:ro
+      - ../output:/workspace/cosmos3/output
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - TORCH_COMPILE_DISABLE=1
+      - LD_LIBRARY_PATH=
+    command: >
+      bash -c "source .venv/bin/activate &&
+      cd cosmos-framework &&
+      python -m cosmos_framework.scripts.inference --help"

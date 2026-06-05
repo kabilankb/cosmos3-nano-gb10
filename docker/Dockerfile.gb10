@@ -1,0 +1,68 @@
+# Cosmos3-Nano on NVIDIA GB10 (Project DIGITS)
+# aarch64 / CUDA 13.0 / 128GB unified memory
+#
+# Build:  docker build -f docker/Dockerfile.gb10 -t cosmos3-nano:gb10 .
+# Run:    docker run --rm --runtime=nvidia --gpus all -it cosmos3-nano:gb10
+
+FROM nvcr.io/nvidia/cuda:13.0.1-devel-ubuntu24.04 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ffmpeg git git-lfs libx11-dev libxcb1 libgl1 libglib2.0-0 \
+    tree wget ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /workspace/cosmos3
+
+# Create venv
+RUN uv venv --python 3.13 --seed .venv
+ENV VIRTUAL_ENV=/workspace/cosmos3/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install core dependencies
+RUN uv pip install --torch-backend=cu130 \
+    "diffusers @ git+https://github.com/huggingface/diffusers.git" \
+    accelerate av cosmos_guardrail huggingface_hub imageio \
+    imageio-ffmpeg torch torchvision transformers openai hf_transfer \
+    pandas qwen-vl-utils iopath "multi-storage-client[boto3]"
+
+# Install cosmos-framework
+COPY cosmos-framework/ /workspace/cosmos3/cosmos-framework/
+RUN pip install -e /workspace/cosmos3/cosmos-framework/
+
+# Reinstall correct torch (framework may downgrade)
+RUN uv pip install --torch-backend=cu130 torch torchvision \
+    "diffusers @ git+https://github.com/huggingface/diffusers.git"
+
+# Apply GB10 patches
+COPY docker/patches/ /tmp/patches/
+RUN if [ -d /tmp/patches ]; then \
+    cp /tmp/patches/sdpa_fallback.py \
+       /workspace/cosmos3/cosmos-framework/cosmos_framework/model/attention/sdpa_fallback.py 2>/dev/null || true; \
+    fi
+
+# Copy scripts
+COPY generate_video.py extract_trajectory.py test_t2v.py test_i2v.py /workspace/cosmos3/
+COPY activate.sh start_server.sh /workspace/cosmos3/
+COPY COSMOS3_GB10_GUIDE.md COSMOS3_FINETUNE_GUIDE.md /workspace/cosmos3/
+
+RUN mkdir -p /workspace/cosmos3/output /workspace/cosmos3/inputs
+
+# Environment
+ENV PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+ENV TORCH_COMPILE_DISABLE=1
+ENV LD_LIBRARY_PATH=""
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+
+# Model mount point
+VOLUME ["/workspace/cosmos3/Cosmos3-Nano"]
+VOLUME ["/workspace/cosmos3/output"]
+
+ENTRYPOINT ["/bin/bash"]

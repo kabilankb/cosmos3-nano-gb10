@@ -1,0 +1,12 @@
+{
+  "action_chunk_size": 16,
+  "domain_name": "robomind-ur",
+  "fps": 10,
+  "image_size": 480,
+  "view_point": "ego_view",
+  "model_mode": "inverse_dynamics",
+  "name": "robot_pick_inverse",
+  "prompt": "A UR robot arm picking a metal part from a bin",
+  "seed": 0,
+  "vision_path": "/home/dgx-destro/cosmos3/output/i2v_20260604_175614.mp4"
+}

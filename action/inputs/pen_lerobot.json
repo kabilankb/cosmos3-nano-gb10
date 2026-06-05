@@ -1,0 +1,12 @@
+{
+  "action_chunk_size": 6,
+  "domain_name": "lerobot-so101",
+  "fps": 10,
+  "image_size": 480,
+  "view_point": "ego_view",
+  "model_mode": "inverse_dynamics",
+  "name": "pen_lerobot",
+  "prompt": "grap the pen and put it on pen stand",
+  "seed": 0,
+  "vision_path": "/home/dgx-destro/cosmos3/output/i2v_20260604_183024.mp4"
+}

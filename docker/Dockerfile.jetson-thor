@@ -1,0 +1,77 @@
+# Cosmos3-Nano on NVIDIA Jetson Thor
+# aarch64 / JetPack 7.x / CUDA 13.x / up to 128GB memory
+#
+# Build:  docker build -f docker/Dockerfile.jetson-thor -t cosmos3-nano:jetson-thor .
+# Run:    docker run --rm --runtime=nvidia --gpus all -it cosmos3-nano:jetson-thor
+#
+# Note: Jetson Thor uses L4T (Linux for Tegra) base images.
+#       JetPack 7.x ships CUDA 13.x on Blackwell-class GPU.
+#       If running JetPack 6.x (Orin), swap base image to:
+#         nvcr.io/nvidia/l4t-pytorch:r36.4.0-pth2.5-py3
+
+FROM nvcr.io/nvidia/l4t-pytorch:r37.1.0-pth2.7-py3 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ffmpeg git git-lfs libx11-dev libxcb1 libgl1 libglib2.0-0 \
+    tree wget ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /workspace/cosmos3
+
+# Create venv (use system python from L4T image which has CUDA-linked torch)
+RUN uv venv --python $(which python3) --seed .venv
+ENV VIRTUAL_ENV=/workspace/cosmos3/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install dependencies (L4T image already has torch+CUDA)
+# Use --torch-backend=auto to match the pre-installed CUDA version
+RUN uv pip install --torch-backend=auto \
+    "diffusers @ git+https://github.com/huggingface/diffusers.git" \
+    accelerate av cosmos_guardrail huggingface_hub imageio \
+    imageio-ffmpeg torchvision transformers openai hf_transfer \
+    pandas qwen-vl-utils iopath "multi-storage-client[boto3]"
+
+# Install cosmos-framework
+COPY cosmos-framework/ /workspace/cosmos3/cosmos-framework/
+RUN pip install -e /workspace/cosmos3/cosmos-framework/
+
+# Reinstall correct diffusers (framework may downgrade)
+RUN pip install "diffusers @ git+https://github.com/huggingface/diffusers.git"
+
+# Apply patches (same as GB10 — both are Blackwell aarch64)
+COPY docker/patches/ /tmp/patches/
+RUN if [ -d /tmp/patches ]; then \
+    cp /tmp/patches/sdpa_fallback.py \
+       /workspace/cosmos3/cosmos-framework/cosmos_framework/model/attention/sdpa_fallback.py 2>/dev/null || true; \
+    fi
+
+# Copy scripts
+COPY generate_video.py extract_trajectory.py test_t2v.py test_i2v.py /workspace/cosmos3/
+COPY activate.sh start_server.sh /workspace/cosmos3/
+COPY COSMOS3_GB10_GUIDE.md COSMOS3_FINETUNE_GUIDE.md /workspace/cosmos3/
+
+RUN mkdir -p /workspace/cosmos3/output /workspace/cosmos3/inputs
+
+# Environment
+ENV PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+ENV TORCH_COMPILE_DISABLE=1
+ENV LD_LIBRARY_PATH=""
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+
+# Jetson-specific: limit GPU memory for system stability
+# Adjust based on your Thor variant's available GPU memory
+# ENV PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512"
+
+# Model mount point
+VOLUME ["/workspace/cosmos3/Cosmos3-Nano"]
+VOLUME ["/workspace/cosmos3/output"]
+
+ENTRYPOINT ["/bin/bash"]
