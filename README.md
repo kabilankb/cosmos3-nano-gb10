@@ -34,6 +34,43 @@ The 128GB unified memory is the key enabler. Cosmos3-Nano's weights are ~33GB in
 | cosmos-framework | 1.2.2 (patched for GB10) |
 | Model | Cosmos3-Nano (16B params, ~33GB) |
 
+## Project Structure
+
+```
+cosmos3-nano-gb10/
+├── README.md
+├── BLOG_COSMOS3_GB10.md              # Blog post — full story of running Cosmos3 on GB10
+├── COSMOS3_GB10_GUIDE.md             # Complete setup guide with patches and usage
+├── activate.sh                       # Quick environment activation script
+├── generate_video.py                 # Interactive text-to-video & image-to-video generator
+├── generate_image.py                 # Interactive text-to-image generator
+├── test_t2v.py                       # Text-to-video example
+├── test_i2v.py                       # Image-to-video example
+├── action/
+│   ├── docs/
+│   │   ├── COSMOS3_FINETUNE_GUIDE.md     # Fine-tuning guide for Cosmos3
+│   │   └── COSMOS3_POLICY_DROID_GUIDE.md # Policy learning with Droid dataset
+│   ├── inputs/
+│   │   ├── inverse_dynamics_test.json    # Test config for action extraction
+│   │   ├── pen_lerobot.json              # LeRobot pen manipulation config
+│   │   ├── robot_pick_inverse.json       # Robot pick-and-place config
+│   │   └── so101_inverse.json            # SO-101 robot arm config
+│   └── scripts/
+│       ├── extract_actions.py            # Action extraction from video (vLLM-Omni)
+│       ├── extract_trajectory.py         # Trajectory extraction pipeline
+│       └── start_server.sh              # vLLM-Omni Docker server launcher
+└── docker/
+    ├── README.md                         # Docker setup instructions
+    ├── Dockerfile.gb10                   # Dockerfile for NVIDIA Project DIGITS
+    ├── Dockerfile.jetson-thor            # Dockerfile for Jetson Thor
+    ├── docker-compose.yml                # Compose config for multi-container setup
+    ├── build.sh                          # Docker build script
+    ├── run.sh                            # Docker run script
+    └── patches/
+        ├── apply_patches.py              # Auto-apply GB10 patches to cosmos-framework
+        └── sdpa_fallback.py              # PyTorch native SDPA attention backend
+```
+
 ## GB10 Patches
 
 The NVIDIA cosmos-framework required four patches for GB10 compatibility:
