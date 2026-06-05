@@ -2,6 +2,8 @@
 
 Running NVIDIA Cosmos3-Nano (16B parameters) on a single NVIDIA Project DIGITS (GB10) desktop AI supercomputer.
 
+https://github.com/user-attachments/assets/f5d6a0a9-4f3f-4103-bbfd-94b0356c2c5e
+
 ## Overview
 
 NVIDIA's recommended setup for Cosmos3 is 8x H100 GPUs. This project demonstrates running the 16B-parameter Cosmos3-Nano on a single GB10 — a $3,000 desktop device — with full text-to-video, image-to-video, and text-to-image generation at 480p/24fps.
