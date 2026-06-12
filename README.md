@@ -2,7 +2,7 @@
 
 Running NVIDIA Cosmos3-Nano (16B parameters) on NVIDIA Blackwell aarch64 platforms — Project DIGITS (GB10) and Jetson Thor.
 
-https://github.com/user-attachments/assets/ca23236e-5e70-4be5-908f-8c1c18e06851
+https://github.com/user-attachments/assets/4549e940-d762-47f6-b072-cd98810a56fb
 
 NVIDIA's recommended setup for Cosmos3 is 8x H100 GPUs. This project runs the full 16B-parameter model on a single desktop device with 128GB unified memory, with text-to-video, image-to-video, and text-to-image generation at up to 720p.
 
