@@ -27,11 +27,11 @@ ENV VIRTUAL_ENV=/workspace/cosmos3/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install core dependencies
-RUN uv pip install --torch-backend=cu130 \
+RUN pip install \
     "diffusers @ git+https://github.com/huggingface/diffusers.git" \
-    accelerate av cosmos_guardrail huggingface_hub imageio \
+    accelerate av huggingface_hub imageio \
     imageio-ffmpeg torch torchvision transformers openai hf_transfer \
-    pandas qwen-vl-utils iopath "multi-storage-client[boto3]"
+    pandas qwen-vl-utils iopath "multi-storage-client[boto3]" gradio
 
 # Install cosmos-framework
 COPY cosmos-framework/ /workspace/cosmos3/cosmos-framework/
@@ -49,9 +49,9 @@ RUN if [ -d /tmp/patches ]; then \
     fi
 
 # Copy scripts
-COPY generate_video.py extract_trajectory.py test_t2v.py test_i2v.py /workspace/cosmos3/
-COPY activate.sh start_server.sh /workspace/cosmos3/
-COPY COSMOS3_GB10_GUIDE.md COSMOS3_FINETUNE_GUIDE.md /workspace/cosmos3/
+COPY generate_video.py generate_image.py test_t2v.py test_i2v.py webui.py /workspace/cosmos3/
+COPY activate.sh /workspace/cosmos3/
+COPY COSMOS3_GB10_GUIDE.md /workspace/cosmos3/
 
 RUN mkdir -p /workspace/cosmos3/output /workspace/cosmos3/inputs
 
@@ -64,5 +64,7 @@ ENV HF_HUB_ENABLE_HF_TRANSFER=1
 # Model mount point
 VOLUME ["/workspace/cosmos3/Cosmos3-Nano"]
 VOLUME ["/workspace/cosmos3/output"]
+
+EXPOSE 7860
 
 ENTRYPOINT ["/bin/bash"]

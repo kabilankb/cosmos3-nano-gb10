@@ -1,8 +1,8 @@
-"""Cosmos3-Nano video generator on GB10 — text-to-video and image-to-video.
+"""Cosmos3-Nano video generator — text-to-video and image-to-video.
 
 Run and follow the prompts:
-    source ~/cosmos3/activate.sh
-    python ~/cosmos3/generate_video.py
+    source activate.sh
+    python generate_video.py
 """
 import json
 import os
@@ -13,9 +13,12 @@ from diffusers import Cosmos3OmniPipeline
 from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
 from diffusers.utils import export_to_video, load_image
 
-MODEL = "/home/dgx-destro/cosmos3/Cosmos3-Nano"
-NEGATIVE_PROMPT = "/home/dgx-destro/cosmos3/Cosmos3-Nano-assets/assets/negative_prompt.json"
-OUTPUT_DIR = "/home/dgx-destro/cosmos3/output"
+BASE = os.environ.get("COSMOS3_DIR", os.path.dirname(os.path.abspath(__file__)))
+MODEL = f"{BASE}/Cosmos3-Nano"
+NEGATIVE_PROMPT = f"{BASE}/Cosmos3-Nano-assets/assets/negative_prompt.json"
+if not os.path.exists(NEGATIVE_PROMPT):
+    NEGATIVE_PROMPT = f"{BASE}/Cosmos3-Nano/assets/negative_prompt.json"
+OUTPUT_DIR = f"{BASE}/output"
 
 RESOLUTION_MAP = {
     256: {"16:9": (456, 256), "4:3": (336, 256), "1:1": (256, 256), "9:16": (256, 456)},
@@ -172,7 +175,7 @@ def main():
 
     print()
     print("=" * 60)
-    print("  Cosmos3-Nano  |  Video Generator  |  GB10")
+    print("  Cosmos3-Nano  |  Video Generator")
     print("=" * 60)
 
     pipe = load_pipeline()

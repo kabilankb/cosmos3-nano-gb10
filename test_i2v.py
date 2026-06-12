@@ -4,12 +4,12 @@ import torch
 from diffusers import Cosmos3OmniPipeline
 from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
 from diffusers.utils import export_to_video, load_image
-
-ASSETS = "/home/dgx-destro/cosmos3/Cosmos3-Nano-assets/assets"
-MODEL = "/home/dgx-destro/cosmos3/Cosmos3-Nano"
-OUTPUT = "/home/dgx-destro/cosmos3/output"
-
 import os
+
+BASE = os.environ.get("COSMOS3_DIR", "/workspace/cosmos3")
+ASSETS = f"{BASE}/Cosmos3-Nano-assets/assets"
+MODEL = f"{BASE}/Cosmos3-Nano"
+OUTPUT = f"{BASE}/output"
 os.makedirs(OUTPUT, exist_ok=True)
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 

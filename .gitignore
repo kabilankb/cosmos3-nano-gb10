@@ -15,6 +15,33 @@ output/
 action/output/
 action/datasets/
 
+# User input files
+inputs/
+
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+
+# Cache
+.cache/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Gradio temp files
+flagged/
+
+# Datasets
+datasets/

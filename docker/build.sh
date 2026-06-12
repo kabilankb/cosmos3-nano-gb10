@@ -28,6 +28,15 @@ case "$PLATFORM" in
         echo "Built: cosmos3-nano:jetson-thor"
         echo "Run:   docker/run.sh jetson-thor"
         ;;
+    thor-vllm)
+        docker build \
+            -f docker/Dockerfile.jetson-thor-vllm \
+            -t cosmos3-nano:thor-vllm \
+            .
+        echo ""
+        echo "Built: cosmos3-nano:thor-vllm"
+        echo "Run:   docker/run.sh thor-vllm"
+        ;;
     both)
         echo "Building GB10..."
         docker build -f docker/Dockerfile.gb10 -t cosmos3-nano:gb10 .

@@ -1,6 +1,6 @@
 services:
 
-  # NVIDIA GB10 (Project DIGITS)
+  # NVIDIA GB10 (Project DIGITS) — interactive shell
   cosmos3-gb10:
     build:
       context: ..
@@ -22,6 +22,7 @@ services:
       - ../inputs:/workspace/cosmos3/inputs
       - ~/.cache/huggingface:/root/.cache/huggingface
     environment:
+      - COSMOS3_DIR=/workspace/cosmos3
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - TORCH_COMPILE_DISABLE=1
       - LD_LIBRARY_PATH=
@@ -29,7 +30,7 @@ services:
     stdin_open: true
     tty: true
 
-  # NVIDIA Jetson Thor
+  # NVIDIA Jetson Thor — interactive shell
   cosmos3-jetson-thor:
     build:
       context: ..
@@ -51,6 +52,7 @@ services:
       - ../inputs:/workspace/cosmos3/inputs
       - ~/.cache/huggingface:/root/.cache/huggingface
     environment:
+      - COSMOS3_DIR=/workspace/cosmos3
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - TORCH_COMPILE_DISABLE=1
       - LD_LIBRARY_PATH=
@@ -58,8 +60,8 @@ services:
     stdin_open: true
     tty: true
 
-  # Video generation server (either platform)
-  cosmos3-server:
+  # Web UI (GB10) — change image/dockerfile for Jetson Thor
+  cosmos3-webui:
     build:
       context: ..
       dockerfile: docker/Dockerfile.gb10
@@ -74,16 +76,18 @@ services:
               capabilities: [gpu]
     ipc: host
     ports:
-      - "8000:8000"
+      - "7860:7860"
     volumes:
       - ../Cosmos3-Nano:/workspace/cosmos3/Cosmos3-Nano:ro
+      - ../Cosmos3-Nano-assets:/workspace/cosmos3/Cosmos3-Nano-assets:ro
       - ../output:/workspace/cosmos3/output
+      - ../inputs:/workspace/cosmos3/inputs
       - ~/.cache/huggingface:/root/.cache/huggingface
     environment:
+      - COSMOS3_DIR=/workspace/cosmos3
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - TORCH_COMPILE_DISABLE=1
       - LD_LIBRARY_PATH=
-    command: >
-      bash -c "source .venv/bin/activate &&
-      cd cosmos-framework &&
-      python -m cosmos_framework.scripts.inference --help"
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    entrypoint: ""
+    command: /bin/bash -c "source .venv/bin/activate && python webui.py"

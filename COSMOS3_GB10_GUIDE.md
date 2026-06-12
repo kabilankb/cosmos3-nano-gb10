@@ -9,8 +9,10 @@
 | **Memory** | 128GB unified (CPU+GPU) |
 | **CUDA** | 13.0, Driver 580.126.09 |
 | **OS** | Ubuntu 24.04 (aarch64/ARM) |
-| **Stack** | Python 3.13, PyTorch 2.12+cu130, Diffusers 0.39, cosmos-framework 1.2.2 |
+| **Stack** | Python 3.13, PyTorch 2.12+cu130, Diffusers (from git), cosmos-framework 1.2.2 |
 | **Location** | `~/cosmos3/` |
+| **IP** | `192.168.1.25` |
+| **User** | `dgx-destro` |
 
 ## Quick Start
 
@@ -29,12 +31,25 @@ export TORCH_COMPILE_DISABLE=1    # required for action generation
 ├── Cosmos3-Nano/                   # Model weights (33GB)
 ├── Cosmos3-Nano-assets/assets/     # Example prompts & sample inputs
 ├── output/                         # Generated output directory
+├── webui.py                        # Gradio Web UI (NVIDIA themed)
 ├── generate_video.py               # Interactive image-to-video script
 ├── test_t2v.py                     # Text-to-video example
 ├── test_i2v.py                     # Image-to-video example
-├── extract_actions.py              # Interactive action extraction (needs vLLM-Omni)
-├── start_server.sh                 # vLLM-Omni Docker server launcher
-└── COSMOS3_GB10_GUIDE.md           # This file
+├── generate_image.py               # Image generation script
+├── thor_test_t2v.py                # Thor text-to-video test
+├── thor_test_i2v.py                # Thor image-to-video test
+├── webui.sh                        # Docker Web UI shortcut
+├── docker/                         # Dockerfiles for GB10 & Thor
+│   ├── Dockerfile.gb10
+│   ├── Dockerfile.jetson-thor
+│   ├── Dockerfile.jetson-thor-vllm
+│   ├── patches/
+│   │   ├── apply_patches.py
+│   │   └── sdpa_fallback.py
+│   ├── build.sh
+│   └── run.sh
+├── COSMOS3_GB10_GUIDE.md           # This file
+└── COSMOS3_JETSON_THOR_GUIDE.md    # Thor setup guide
 ```
 
 ---
@@ -45,7 +60,7 @@ The framework needed 4 patches for GB10 compatibility. These are already applied
 
 | # | File | Issue | Fix |
 |---|---|---|---|
-| 1 | `inference/args.py` | `nvmlDeviceGetMemoryInfo` not supported on GB10 | Fallback to `torch.cuda.get_device_properties(0).total_memory` |
+| 1 | `inference/args.py` | `nvmlDeviceGetMemoryInfo` not supported on GB10 | Fallback to `torch.cuda.get_device_properties(0).total_mem` |
 | 2 | `inference/vision.py` | `torchvision.io.read_video` removed in v0.27 | Replaced with PyAV (`av` library) |
 | 3 | `model/attention/sdpa_fallback.py` (new) | No flash-attn/natten on GB10 | PyTorch native SDPA with GQA head expansion |
 | 4 | `model/attention/frontend.py` + `backends.py` | SDPA not registered as backend | Added `"sdpa"` to `BACKEND_MAP` and `BACKEND_CHECK_MAP` |
@@ -57,6 +72,72 @@ export TORCH_COMPILE_DISABLE=1                    # torch.compile fails on GB10 
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"  # prevents OOM fragmentation
 export LD_LIBRARY_PATH=                            # must be cleared to avoid library conflicts
 ```
+
+---
+
+## Web UI (Gradio)
+
+The web UI provides a browser-based interface for all generation modes with NVIDIA-themed styling.
+
+### Launch (Bare Metal)
+
+```bash
+source ~/cosmos3/activate.sh
+pip install gradio    # first time only
+python webui.py
+```
+
+Access at: `http://192.168.1.25:7860` (from network) or `http://localhost:7860` (local).
+
+### Launch (Docker)
+
+```bash
+docker/run.sh gb10 webui           # default port 7860
+docker/run.sh gb10 webui 7861      # custom port
+./webui.sh                          # shortcut (port 7860)
+./webui.sh 7861                     # shortcut (custom port)
+```
+
+### To change host/port
+
+```bash
+WEBUI_HOST=0.0.0.0 WEBUI_PORT=8080 python webui.py
+```
+
+### Web UI Features
+
+| Tab | Input | Output |
+|---|---|---|
+| **Text to Video** | Text prompt | MP4 video preview + download |
+| **Image to Video** | Drag & drop image + optional text | MP4 video preview + download |
+| **Text to Image** | Text prompt | JPG image preview + download |
+
+Controls per tab: resolution (256p/480p/720p), aspect ratio, frames, FPS, inference steps, guidance scale, seed.
+
+### Web UI Technical Details
+
+| Feature | Detail |
+|---|---|
+| **NVIDIA Theme** | Custom dark theme with NVIDIA Green (#76B900), gradient header with logo, green tabs/buttons. Theme and CSS passed to `launch()` (Gradio 6.x requirement) |
+| **Live Status** | Pipeline runs in background thread; main thread yields `"Generating... Xs"` status every 3 seconds to keep SSE connection alive |
+| **Queuing** | `app.queue(default_concurrency_limit=1)` for long-running task support |
+| **H.264 Re-encoding** | ffmpeg re-encodes to `libx264 + yuv420p + faststart` for browser playback |
+| **ffmpeg Fallback** | If re-encode fails, logs error to terminal and falls back to raw video |
+| **Video Component** | `gr.Video(autoplay=True)` — do NOT use `format="mp4"` (breaks display in Gradio 6.x) |
+| **Output Path** | Videos saved to `~/cosmos3/output/` (in Gradio `allowed_paths`) |
+| **Pipeline Caching** | Model loads once on first request; subsequent generations reuse loaded pipeline |
+
+### Web UI Troubleshooting
+
+| Issue | Cause | Fix |
+|---|---|---|
+| "Connection lost" / page reload | SSE timeout during ~3 min generation | Fixed — pipeline runs in background thread, yields keepalive every 3s |
+| Video not showing in preview | `format="mp4"` in `gr.Video` breaks Gradio 6.x | Fixed — removed `format="mp4"`, use `gr.Video(autoplay=True)` only |
+| `Cosmos3OmniPipeline` ignores `callback_on_step_end` | Pipeline doesn't support step callbacks | Fixed — use background thread + `yield gr.skip()` instead |
+| Gradio 6.x warning about theme/css | Params moved from `Blocks()` to `launch()` | Fixed — theme/css passed to `app.launch()` |
+| Browser console: "Method not implemented" / "Empty string passed to getElementById()" | Gradio 6.x bundled JS + Firefox autofill scanning form inputs | Harmless — does not affect functionality. Ignore these warnings |
+| ffmpeg not found | Missing system package | `sudo apt install ffmpeg` |
+| Blank preview but download works | ffmpeg codec issue | Check terminal for `[ffmpeg] FAILED` — install libx264 codec |
 
 ---
 
@@ -430,6 +511,40 @@ for i, l in enumerate(labels):
 
 ---
 
+## Docker Setup
+
+### Build
+
+```bash
+docker/build.sh gb10               # GB10
+docker/build.sh jetson-thor         # Jetson Thor
+docker/build.sh thor-vllm           # Thor + vLLM
+```
+
+### Run
+
+```bash
+# Interactive shell
+docker/run.sh gb10 interactive
+
+# Web UI
+docker/run.sh gb10 webui            # port 7860
+docker/run.sh gb10 webui 7861       # custom port
+./webui.sh                           # shortcut
+
+# Text-to-Video test
+docker/run.sh gb10 t2v
+
+# Image-to-Video generator
+docker/run.sh gb10 generate
+```
+
+Access Web UI from network: `http://192.168.1.25:7860`
+
+All modes work with any platform: `gb10`, `jetson-thor`, `thor-vllm`.
+
+---
+
 ## GB10 Performance
 
 | Task | Steps | Speed | Total Time |
@@ -458,6 +573,16 @@ result = pipe(
     num_inference_steps=25,
 )
 ```
+
+---
+
+## Supported Resolutions & Aspect Ratios
+
+| Resolution | 16:9 | 4:3 | 1:1 | 3:4 | 9:16 |
+|---|---|---|---|---|---|
+| 256p | 456x256 | 336x256 | 256x256 | 256x336 | 256x456 |
+| 480p | 848x480 | 640x480 | 480x480 | 480x640 | 480x848 |
+| 720p | 1280x720 | 960x720 | 720x720 | 720x960 | 720x1280 |
 
 ---
 
@@ -511,13 +636,31 @@ print(response.choices[0].message.content)
 
 ---
 
-## Supported Resolutions & Aspect Ratios
+## Common Dependency Issues
 
-| Resolution | 16:9 | 4:3 | 1:1 | 3:4 | 9:16 |
-|---|---|---|---|---|---|
-| 256p | 456x256 | 336x256 | 256x256 | 256x336 | 256x456 |
-| 480p | 848x480 | 640x480 | 480x480 | 480x640 | 480x848 |
-| 720p | 1280x720 | 960x720 | 720x720 | 720x960 | 720x1280 |
+| Error | Fix |
+|---|---|
+| `cannot import name 'Cosmos3OmniPipeline'` | `pip install "diffusers @ git+https://github.com/huggingface/diffusers.git"` |
+| `huggingface-hub>=0.34.0,<1.0 is required` | `pip install transformers -U` |
+| `No module named 'peft'` | `pip install peft` |
+| `cosmos-framework requires transformers<5.0.0` | Install cosmos-framework first, then diffusers from git last |
+| `PermissionError: '/workspace'` | Set `export COSMOS3_DIR=~/cosmos3` |
+
+### Recommended Install Order
+
+```bash
+# 1. cosmos-framework (pins transformers<5, diffusers)
+cd ~/cosmos3/cosmos-framework
+pip install -e ".[guardrail]"
+
+# 2. peft (required by cosmos_guardrail but not declared)
+pip install peft
+
+# 3. diffusers from git (overrides framework's older pin — must be last)
+pip install "diffusers @ git+https://github.com/huggingface/diffusers.git"
+```
+
+---
 
 ## Safety Checker
 
@@ -528,10 +671,27 @@ Once approved, set `enable_safety_checker=True` in the diffusers pipeline.
 
 ## Dependency Notes
 
-- `diffusers` must be installed from git (`pip install "diffusers @ git+https://github.com/huggingface/diffusers.git"`) for `Cosmos3OmniPipeline`
+- `diffusers` must be installed from git for `Cosmos3OmniPipeline`
 - `lerobot` install conflicts with torch/diffusers versions — ignore pip compatibility warnings
 - Qwen3-VL-8B-Instruct tokenizer (~17GB) is cached at `~/.cache/huggingface/hub/models--Qwen--Qwen3-VL-8B-Instruct/`
 - Wan2.2 VAE cached at `~/.cache/huggingface/hub/models--Wan-AI--Wan2.2-TI2V-5B/`
+
+## Network Info
+
+| Machine | IP | User |
+|---|---|---|
+| GB10 (Project DIGITS) | 192.168.1.25 | dgx-destro |
+| Jetson Thor | 192.168.1.29 | nvidia-thor |
+
+### Copy files between machines
+
+```bash
+# GB10 to Thor:
+scp /home/dgx-destro/cosmos3/<file> nvidia-thor@192.168.1.29:/home/nvidia-thor/cosmos3/<file>
+
+# Thor to GB10:
+scp nvidia-thor@192.168.1.29:/home/nvidia-thor/cosmos3/<file> /home/dgx-destro/cosmos3/<file>
+```
 
 ## Key Links
 
